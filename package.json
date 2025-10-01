@@ -6,8 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "test": "jest --runInBand",
-    "ci:test": "jest --runInBand --ci"
+    "test": "jest --runInBand --coverage",
+    "ci:test": "jest --runInBand --ci --coverage"
   },
   "keywords": [],
   "author": "",
