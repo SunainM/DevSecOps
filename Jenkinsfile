@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   tools {
-    nodejs "NodeJS_24"   // We'll define this tool name in Jenkins -> Global Tool Config
+    nodejs "NODEJS_24"   // We'll define this tool name in Jenkins -> Global Tool Config
   }
 
   options {
