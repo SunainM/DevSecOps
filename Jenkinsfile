@@ -13,7 +13,7 @@ pipeline {
   stages {
     stage('Build') {
       steps {
-        echo "🔨 Building the project (dummy build step for now)..."
+        echo "🔨 Building the project"
         // Example: if packaging into Docker
         // sh 'docker build -t my-inventory-app:latest .'
         sh 'npm install'  // simple build step for Node.js
@@ -58,14 +58,89 @@ pipeline {
     }
 
     stage('Security') {
-      steps {
-        echo "🛡️ Running security scans (dummy stage)..."
-        // Example: OWASP Dependency-Check
-        // sh 'dependency-check --project my-app --scan . --format XML --out reports/security'
-        // Example: npm audit
-        // sh 'npm audit --json > reports/security-audit.json'
-      }
+        environment {
+            // Gates (fail build when >0 of these severities)
+            FAIL_ON_CRITICAL = '1'
+            FAIL_ON_HIGH     = '1'
+            FAIL_ON_MODERATE = '0'  // keep 0 to not fail on Mod/Low
+            FAIL_ON_LOW      = '0'
+
+            // Optional: try auto-fix first, then re-scan (0 = off, 1 = on)
+            AUTO_FIX         = '0'
+        }
+        steps {
+            echo "🛡️ Running dependency security audit..."
+
+            sh '''
+            set -e
+            mkdir -p reports/security
+
+            # --- 1) optional auto-fix (package-lock only to avoid surprise code changes)
+            if [ "$AUTO_FIX" = "1" ]; then
+                echo "🔧 Attempting npm audit fix (lockfile-only)..."
+                npm audit fix --package-lock-only || true
+                # ensure deps match lockfile after fix attempt
+                npm ci
+            fi
+
+            # --- 2) run audit and generate summary
+            npm audit --json > reports/security/npm-audit.json || true
+            node scripts/generate-security-summary.js reports/security/npm-audit.json > reports/security/SECURITY_SUMMARY.md
+
+            echo "---- SECURITY SUMMARY ----"
+            cat reports/security/SECURITY_SUMMARY.md || true
+            echo "--------------------------"
+
+            # --- 3) parse counts via Node (works across npm versions)
+            JSON=reports/security/npm-audit.json
+
+            CRIT=$(node -e "let j=require('./$JSON');let c=0;if(j.vulnerabilities){for(const k in j.vulnerabilities){if(j.vulnerabilities[k].severity==='critical'){c+=(j.vulnerabilities[k].via||[]).length||1}}}else if(j.advisories){for(const k in j.advisories){if(j.advisories[k].severity==='critical'){c++}}}console.log(c)")
+            HIGH=$(node -e "let j=require('./$JSON');let c=0;if(j.vulnerabilities){for(const k in j.vulnerabilities){if(j.vulnerabilities[k].severity==='high'){c+=(j.vulnerabilities[k].via||[]).length||1}}}else if(j.advisories){for(const k in j.advisories){if(j.advisories[k].severity==='high'){c++}}}console.log(c)")
+            MOD=$(node -e "let j=require('./$JSON');let c=0;if(j.vulnerabilities){for(const k in j.vulnerabilities){if(j.vulnerabilities[k].severity==='moderate'){c+=(j.vulnerabilities[k].via||[]).length||1}}}else if(j.advisories){for(const k in j.advisories){if(j.advisories[k].severity==='moderate'){c++}}}console.log(c)")
+            LOW=$(node -e "let j=require('./$JSON');let c=0;if(j.vulnerabilities){for(const k in j.vulnerabilities){if(j.vulnerabilities[k].severity==='low'){c+=(j.vulnerabilities[k].via||[]).length||1}}}else if(j.advisories){for(const k in j.advisories){if(j.advisories[k].severity==='low'){c++}}}console.log(c)")
+
+            echo "Counts => Critical:$CRIT High:$HIGH Moderate:$MOD Low:$LOW"
+
+            # --- 4) gate logic
+            FAIL=0
+            [ "$FAIL_ON_CRITICAL" = "1" ] && [ "$CRIT" -gt 0 ] && { echo "❌ Critical vulns found"; FAIL=1; }
+            [ "$FAIL_ON_HIGH"     = "1" ] && [ "$HIGH" -gt 0 ] && { echo "❌ High vulns found"; FAIL=1; }
+            [ "$FAIL_ON_MODERATE" = "1" ] && [ "$MOD"  -gt 0 ] && { echo "❌ Moderate vulns found"; FAIL=1; }
+            [ "$FAIL_ON_LOW"      = "1" ] && [ "$LOW"  -gt 0 ] && { echo "❌ Low vulns found"; FAIL=1; }
+
+            # exit code 5 = fail; 0 = ok. For only Mod/Low, we allow post { unstable } to handle.
+            if [ "$FAIL" -ne 0 ]; then
+                echo "Security gate failed. See SECURITY_SUMMARY.md and npm-audit.json under reports/security/"
+                exit 5
+            fi
+            '''
+        }
+        post {
+            always {
+            archiveArtifacts artifacts: 'reports/security/*', fingerprint: true, onlyIfSuccessful: false
+            }
+            // Mark build UNSTABLE when only Moderate/Low issues exist (no hard fail).
+            success {
+            script {
+                def json = readFile(file: 'reports/security/npm-audit.json')
+                def counts = sh(
+                returnStdout: true,
+                script: '''
+                    node -e "let j=require('./reports/security/npm-audit.json');function c(s){let n=0;if(j.vulnerabilities){for(const k in j.vulnerabilities){if(j.vulnerabilities[k].severity===s){n+=(j.vulnerabilities[k].via||[]).length||1}}}else if(j.advisories){for(const k in j.advisories){if(j.advisories[k].severity===s){n++}}}console.log(n)}; console.log(JSON.stringify({crit:c('critical'),high:c('high'),mod:c('moderate'),low:c('low')}))"
+                '''
+                ).trim()
+                def obj = new groovy.json.JsonSlurperClassic().parseText(counts)
+
+                if ((obj.mod as Integer) > 0 || (obj.low as Integer) > 0) {
+                echo "⚠️ Only Moderate/Low vulnerabilities present → marking build UNSTABLE."
+                currentBuild.result = 'UNSTABLE'
+                }
+            }
+            }
+        }
     }
+
+
 
     stage('Deploy') {
       steps {
