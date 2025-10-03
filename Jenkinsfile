@@ -152,7 +152,7 @@ pipeline {
             echo "Waiting for health..."
             # Health check THROUGH the dind container (port published above)
             for i in $(seq 1 30); do
-                if docker-compose -f docker-compose.ci.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
+                if docker-compose -f docker-compose.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
                 echo "Service healthy."
                 break
                 fi
