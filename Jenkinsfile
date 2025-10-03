@@ -148,14 +148,18 @@ pipeline {
             docker version
             docker-compose version
 
+            # clean up any old containers/networks from a previous run
+            docker-compose -f docker-compose.yml down -v --remove-orphans || true
+            docker network rm ${COMPOSE_PROJECT_NAME}_default || true
+
             # Only start web, not dind
             docker-compose -f docker-compose.yml up -d --build web
 
             echo "Waiting for health..."
             for i in $(seq 1 30); do
                 if docker-compose -f docker-compose.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
-                echo "Service healthy."
-                break
+                    echo "Service healthy."
+                    break
                 fi
                 echo "not ready yet... ($i/30)"; sleep 2
             done
@@ -165,11 +169,11 @@ pipeline {
         }
         post {
             failure {
-            sh '''
-                mkdir -p reports/deploy
-                docker-compose -f docker-compose.yml logs --no-color > reports/deploy/compose-logs.txt || true
-            '''
-            archiveArtifacts artifacts: 'reports/deploy/**', fingerprint: true, onlyIfSuccessful: false
+                sh '''
+                    mkdir -p reports/deploy
+                    docker-compose -f docker-compose.yml logs --no-color > reports/deploy/compose-logs.txt || true
+                '''
+                archiveArtifacts artifacts: 'reports/deploy/**', fingerprint: true, onlyIfSuccessful: false
             }
         }
     }
