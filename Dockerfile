@@ -1,18 +1,16 @@
-# ---- build runtime image ----
 FROM node:20-alpine
-
-# Create app dir
 WORKDIR /app
 
-# Install only production deps
 COPY package*.json ./
 RUN npm ci --only=production
 
-# Copy app source
 COPY . .
 
-# App listens on 3000
+# tiny server.js wrapper to start the exported Express app (create this file in repo)
+#   const app = require('./app');
+#   const port = process.env.PORT || 3000;
+#   app.listen(port, () => console.log(`API on ${port}`));
+#
+# Or change CMD to your actual server start if you already have one.
 EXPOSE 3000
-
-# Start the server
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

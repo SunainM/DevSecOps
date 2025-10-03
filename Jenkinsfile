@@ -137,64 +137,45 @@ pipeline {
 
 
     stage('Deploy') {
-        when { expression { return env.CHANGE_ID == null } } // optional: skip on PRs
-        environment {
-            DOCKER_IMG = "devsecops:${env.BUILD_NUMBER}"
-            GIT_SHA    = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-            // you can push later in Release, so local tag is fine for Deploy
-        }
+        when { branch 'main' }
         steps {
-            echo "🐳 Building Docker image ${DOCKER_IMG} (sha:${GIT_SHA})"
             sh '''
             set -e
 
-            # Build image
-            docker build -t "${DOCKER_IMG}" .
+            echo "Docker endpoint: $DOCKER_HOST"
+            docker version
+            docker compose version
 
-            # Clean previous container if exists
-            if [ "$(docker ps -aq -f name=devsecops-test)" ]; then
-                docker rm -f devsecops-test || true
-            fi
+            # Bring up the app in DinD using the repo's CI compose file
+            docker compose -f docker-compose.ci.yml up -d --build
 
-            # Run container
-            docker run -d --name devsecops-test -p 3000:3000 "${DOCKER_IMG}"
-
-            # Health check with retries
-            ATTEMPTS=12   # ~60s max (12 * 5s)
-            until curl -fsS http://localhost:3000/health | grep -q '{"ok":true}'; do
-                ATTEMPTS=$((ATTEMPTS-1))
-                if [ $ATTEMPTS -le 0 ]; then
-                echo "❌ Health check failed"
-                docker logs devsecops-test || true
-                exit 1
+            echo "Waiting for health..."
+            # Health check THROUGH the dind container (port published above)
+            for i in $(seq 1 30); do
+                if docker compose -f docker-compose.ci.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
+                echo "Service healthy."
+                break
                 fi
-                echo "Waiting for app to become healthy..."
-                sleep 5
+                echo "not ready yet... ($i/30)"; sleep 2
             done
 
-            echo "✅ Deploy (test) is healthy"
+            # Alternatively, since the port is published on the DinD container:
+            # curl -sSf http://dind:18081/health
+
+            docker compose -f docker-compose.ci.yml ps
             '''
         }
         post {
-            success {
-            echo "Deploy stage completed successfully."
-            }
             failure {
-            echo "Collecting container logs due to failure…"
-            sh 'docker logs devsecops-test || true'
-            }
-            always {
-            // Keep things tidy on the agent
             sh '''
-                docker ps -a
-                # Stop & remove the test container
-                docker rm -f devsecops-test || true
-                # Optionally prune dangling images (safe-ish but optional)
-                docker image prune -f || true
+                mkdir -p reports/deploy
+                docker compose -f docker-compose.ci.yml logs --no-color > reports/deploy/compose-logs.txt || true
             '''
+            archiveArtifacts artifacts: 'reports/deploy/**', fingerprint: true, onlyIfSuccessful: false
             }
         }
     }
+
 
 
     stage('Release') {

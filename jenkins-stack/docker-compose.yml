@@ -1,0 +1,38 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    user: root
+    ports:
+      - "9090:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - dind
+
+  dind:
+    image: docker:24-dind
+    privileged: true
+    container_name: dind
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    ports:
+      - "2375:2375" # <--- must be array like this, not string
+    volumes:
+      - dind-storage:/var/lib/docker
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: devsecops:${BUILD_NUMBER}
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    ports:
+      - "18081:3000" # published on DinD; Jenkins can reach it at http://dind:18081
+    restart: unless-stopped
+volumes:
+  jenkins_home:
+  dind-storage:
