@@ -117,27 +117,22 @@ pipeline {
         }
         post {
             always {
-            archiveArtifacts artifacts: 'reports/security/*', fingerprint: true, onlyIfSuccessful: false
+                archiveArtifacts artifacts: 'reports/security/*', fingerprint: true, onlyIfSuccessful: false
             }
-            // Mark build UNSTABLE when only Moderate/Low issues exist (no hard fail).
             success {
-            script {
-                def json = readFile(file: 'reports/security/npm-audit.json')
-                def counts = sh(
-                returnStdout: true,
-                script: '''
-                    node -e "let j=require('./reports/security/npm-audit.json');function c(s){let n=0;if(j.vulnerabilities){for(const k in j.vulnerabilities){if(j.vulnerabilities[k].severity===s){n+=(j.vulnerabilities[k].via||[]).length||1}}}else if(j.advisories){for(const k in j.advisories){if(j.advisories[k].severity===s){n++}}}console.log(n)}; console.log(JSON.stringify({crit:c('critical'),high:c('high'),mod:c('moderate'),low:c('low')}))"
-                '''
-                ).trim()
-                def obj = new groovy.json.JsonSlurperClassic().parseText(counts)
-
-                if ((obj.mod as Integer) > 0 || (obj.low as Integer) > 0) {
-                echo "⚠️ Only Moderate/Low vulnerabilities present → marking build UNSTABLE."
-                currentBuild.result = 'UNSTABLE'
+                script {
+                // No JSON, no Slurper — just read the status marker written by the shell step
+                def marker = sh(returnStdout: true, script: "cat reports/security/build_status 2>/dev/null || echo OK").trim()
+                if (marker == 'UNSTABLE') {
+                    echo "⚠️ Moderate/Low vulns found -> marking build UNSTABLE (see SECURITY_SUMMARY.md)."
+                    currentBuild.result = 'UNSTABLE'
+                } else {
+                    echo "✅ Security gate clean."
+                }
                 }
             }
-            }
         }
+
     }
 
 
