@@ -188,11 +188,42 @@ pipeline {
 
 
     stage('Release') {
-      steps {
-        echo "📦 Releasing to production (dummy stage)..."
-        // Example: Octopus Deploy / AWS CodeDeploy
-        // sh './deploy-to-prod.sh'
-      }
+        when { branch 'main' }
+        steps {
+            echo "📦 [Release Stage] Starting release process (dummy values)"
+
+            sh '''
+            set -e
+
+            # --- Dummy AWS/CodeDeploy Simulation ---
+            echo "Packaging build into zip..."
+            mkdir -p reports/release
+            echo "Pretend we zipped the repo here" > reports/release/DevSecOpsBuild.zip
+
+            echo "Uploading to S3 bucket (dummy-bucket)"
+            echo "aws s3 cp DevSecOpsBuild.zip s3://dummy-bucket/builds/DevSecOpsBuild.zip"
+
+            echo "Creating CodeDeploy deployment"
+            echo "aws deploy create-deployment --application-name DummyApp --deployment-group-name DummyDG"
+
+            echo "Simulating wait for deployment status..."
+            for i in $(seq 1 5); do
+            echo "  -> pretending status = InProgress ($i/5)"
+            sleep 1
+            done
+
+            echo "✅ Dummy deployment succeeded!"
+            '''
+        }
+        post {
+            success {
+            archiveArtifacts artifacts: 'reports/release/**', fingerprint: true, onlyIfSuccessful: true
+            echo "Artifacts archived from dummy release stage."
+            }
+            failure {
+            echo "❌ Dummy release stage failed."
+            }
+        }
     }
 
     stage('Monitoring & Alerting') {
