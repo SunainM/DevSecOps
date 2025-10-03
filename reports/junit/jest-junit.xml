@@ -1,7 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="1" failures="0" errors="0" time="0.652">
-  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-10-03T06:56:20" time="0.586" tests="1">
-    <testcase classname=" GET /health -&gt; { ok: true }" name=" GET /health -&gt; { ok: true }" time="0.024">
+<testsuites name="jest tests" tests="19" failures="0" errors="0" time="0.863">
+  <testsuite name="Inventory API" errors="0" failures="0" skipped="0" timestamp="2025-10-03T07:07:21" time="0.684" tests="18">
+    <testcase classname="Inventory API GET /health -&gt; 200 {ok:true}" name="Inventory API GET /health -&gt; 200 {ok:true}" time="0.019">
+    </testcase>
+    <testcase classname="Inventory API GET /api/products -&gt; initial list" name="Inventory API GET /api/products -&gt; initial list" time="0.005">
+    </testcase>
+    <testcase classname="Inventory API POST /api/products -&gt; add valid product" name="Inventory API POST /api/products -&gt; add valid product" time="0.015">
+    </testcase>
+    <testcase classname="Inventory API POST /api/products -&gt; rejects short name" name="Inventory API POST /api/products -&gt; rejects short name" time="0.005">
+    </testcase>
+    <testcase classname="Inventory API PUT /api/products/:id -&gt; update stock" name="Inventory API PUT /api/products/:id -&gt; update stock" time="0.008">
+    </testcase>
+    <testcase classname="Inventory API PUT /api/products/:id -&gt; reject negative stock" name="Inventory API PUT /api/products/:id -&gt; reject negative stock" time="0.006">
+    </testcase>
+    <testcase classname="Inventory API DELETE /api/products/:id -&gt; 204" name="Inventory API DELETE /api/products/:id -&gt; 204" time="0.009">
+    </testcase>
+    <testcase classname="Simulator controls status starts as stopped" name="Simulator controls status starts as stopped" time="0.005">
+    </testcase>
+    <testcase classname="Simulator controls start -&gt; running true and nextRunAt set" name="Simulator controls start -&gt; running true and nextRunAt set" time="0.004">
+    </testcase>
+    <testcase classname="Simulator controls a tick fires at mocked delay and updates stock" name="Simulator controls a tick fires at mocked delay and updates stock" time="0.009">
+    </testcase>
+    <testcase classname="Simulator controls stop -&gt; running false, start idempotent" name="Simulator controls stop -&gt; running false, start idempotent" time="0.01">
+    </testcase>
+    <testcase classname="Simulator controls GET /api/products returns array with initial products" name="Simulator controls GET /api/products returns array with initial products" time="0.004">
+    </testcase>
+    <testcase classname="Simulator controls POST /api/products rejects short name" name="Simulator controls POST /api/products rejects short name" time="0.006">
+    </testcase>
+    <testcase classname="Simulator controls POST /api/products creates a new product" name="Simulator controls POST /api/products creates a new product" time="0.004">
+    </testcase>
+    <testcase classname="Simulator controls PUT /api/products/:id updates stock" name="Simulator controls PUT /api/products/:id updates stock" time="0.01">
+    </testcase>
+    <testcase classname="Simulator controls DELETE /api/products/:id removes product" name="Simulator controls DELETE /api/products/:id removes product" time="0.01">
+    </testcase>
+    <testcase classname="Simulator controls returns noop when no products (via simulation start)" name="Simulator controls returns noop when no products (via simulation start)" time="0.017">
+    </testcase>
+    <testcase classname="Simulator controls POST /api/sim/start enables simulation and /api/sim/stop disables it" name="Simulator controls POST /api/sim/start enables simulation and /api/sim/stop disables it" time="0.006">
+    </testcase>
+  </testsuite>
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2025-10-03T07:07:22" time="0.098" tests="1">
+    <testcase classname=" GET /health -&gt; { ok: true }" name=" GET /health -&gt; { ok: true }" time="0.007">
     </testcase>
   </testsuite>
 </testsuites>
