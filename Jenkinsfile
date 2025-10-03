@@ -147,12 +147,12 @@ pipeline {
             docker-compose version
 
             # Bring up the app in DinD using the repo's CI compose file
-            docker compose -f docker-compose.ci.yml up -d --build
+            docker-compose -f docker-compose.ci.yml up -d --build
 
             echo "Waiting for health..."
             # Health check THROUGH the dind container (port published above)
             for i in $(seq 1 30); do
-                if docker compose -f docker-compose.ci.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
+                if docker-compose -f docker-compose.ci.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
                 echo "Service healthy."
                 break
                 fi
@@ -162,14 +162,14 @@ pipeline {
             # Alternatively, since the port is published on the DinD container:
             # curl -sSf http://dind:18081/health
 
-            docker compose -f docker-compose.ci.yml ps
+            docker-compose -f docker-compose.ci.yml ps
             '''
         }
         post {
             failure {
             sh '''
                 mkdir -p reports/deploy
-                docker compose -f docker-compose.ci.yml logs --no-color > reports/deploy/compose-logs.txt || true
+                docker-compose -f docker-compose.ci.yml logs --no-color > reports/deploy/compose-logs.txt || true
             '''
             archiveArtifacts artifacts: 'reports/deploy/**', fingerprint: true, onlyIfSuccessful: false
             }
