@@ -136,16 +136,66 @@ pipeline {
     }
 
 
-
     stage('Deploy') {
-      steps {
-        echo "🚀 Deploying to staging environment (dummy stage)..."
-        // Example: Docker Compose
-        // sh 'docker-compose -f docker-compose.staging.yml up -d --build'
-        // Example: AWS Elastic Beanstalk
-        // sh 'eb deploy staging'
-      }
+        when { expression { return env.CHANGE_ID == null } } // optional: skip on PRs
+        environment {
+            DOCKER_IMG = "devsecops:${env.BUILD_NUMBER}"
+            GIT_SHA    = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+            // you can push later in Release, so local tag is fine for Deploy
+        }
+        steps {
+            echo "🐳 Building Docker image ${DOCKER_IMG} (sha:${GIT_SHA})"
+            sh '''
+            set -e
+
+            # Build image
+            docker build -t "${DOCKER_IMG}" .
+
+            # Clean previous container if exists
+            if [ "$(docker ps -aq -f name=devsecops-test)" ]; then
+                docker rm -f devsecops-test || true
+            fi
+
+            # Run container
+            docker run -d --name devsecops-test -p 3000:3000 "${DOCKER_IMG}"
+
+            # Health check with retries
+            ATTEMPTS=12   # ~60s max (12 * 5s)
+            until curl -fsS http://localhost:3000/health | grep -q '{"ok":true}'; do
+                ATTEMPTS=$((ATTEMPTS-1))
+                if [ $ATTEMPTS -le 0 ]; then
+                echo "❌ Health check failed"
+                docker logs devsecops-test || true
+                exit 1
+                fi
+                echo "Waiting for app to become healthy..."
+                sleep 5
+            done
+
+            echo "✅ Deploy (test) is healthy"
+            '''
+        }
+        post {
+            success {
+            echo "Deploy stage completed successfully."
+            }
+            failure {
+            echo "Collecting container logs due to failure…"
+            sh 'docker logs devsecops-test || true'
+            }
+            always {
+            // Keep things tidy on the agent
+            sh '''
+                docker ps -a
+                # Stop & remove the test container
+                docker rm -f devsecops-test || true
+                # Optionally prune dangling images (safe-ish but optional)
+                docker image prune -f || true
+            '''
+            }
+        }
     }
+
 
     stage('Release') {
       steps {
