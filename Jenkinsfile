@@ -141,16 +141,17 @@ pipeline {
         steps {
             sh '''
             set -e
+            export DOCKER_HOST=tcp://dind:2375
+            export COMPOSE_PROJECT_NAME=ci
 
             echo "Docker endpoint: $DOCKER_HOST"
             docker version
             docker-compose version
 
-            # Bring up the app in DinD using the repo's CI compose file
-            docker-compose -f docker-compose.yml up -d --build
+            # Only start web, not dind
+            docker-compose -f docker-compose.yml up -d --build web
 
             echo "Waiting for health..."
-            # Health check THROUGH the dind container (port published above)
             for i in $(seq 1 30); do
                 if docker-compose -f docker-compose.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
                 echo "Service healthy."
@@ -158,9 +159,6 @@ pipeline {
                 fi
                 echo "not ready yet... ($i/30)"; sleep 2
             done
-
-            # Alternatively, since the port is published on the DinD container:
-            # curl -sSf http://dind:18081/health
 
             docker-compose -f docker-compose.yml ps
             '''
