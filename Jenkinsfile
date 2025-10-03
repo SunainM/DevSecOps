@@ -141,39 +141,46 @@ pipeline {
         steps {
             sh '''
             set -e
+
+            # Talk to your existing DinD
             export DOCKER_HOST=tcp://dind:2375
+
+            # We will bring the stack up under a NEW project name "ci"
             export COMPOSE_PROJECT_NAME=ci
 
-            echo "Docker endpoint: $DOCKER_HOST"
+            echo "Docker endpoint: ${DOCKER_HOST}"
             docker version
             docker-compose version
 
-            # clean up any old containers/networks from a previous run
-            docker-compose -f docker-compose.yml down -v --remove-orphans || true
-            docker network rm ${COMPOSE_PROJECT_NAME}_default || true
+            echo "Cleaning previous project/network created without COMPOSE_PROJECT_NAME..."
+            # Old project name is derived from your job/workspace: "devsecops_main"
+            docker-compose -p devsecops_main -f docker-compose.yml down -v --remove-orphans || true
+            docker network rm devsecops_main_default || true
 
-            # Only start web, not dind
-            docker-compose -f docker-compose.yml up -d --build web
+            # (optional) verify no leftovers
+            docker network ls | grep -E 'devsecops_main_default|ci_default' || true
+
+            echo "Bringing up only web under project 'ci'..."
+            docker-compose -p ci -f docker-compose.yml up -d --build web
 
             echo "Waiting for health..."
             for i in $(seq 1 30); do
-                if docker-compose -f docker-compose.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
-                    echo "Service healthy."
-                    break
+                if docker-compose -p ci -f docker-compose.yml exec -T web sh -lc "wget -qO- http://localhost:3000/health >/dev/null 2>&1"; then
+                echo "Service healthy."; break
                 fi
                 echo "not ready yet... ($i/30)"; sleep 2
             done
 
-            docker-compose -f docker-compose.yml ps
+            docker-compose -p ci -f docker-compose.yml ps
             '''
         }
         post {
             failure {
-                sh '''
-                    mkdir -p reports/deploy
-                    docker-compose -f docker-compose.yml logs --no-color > reports/deploy/compose-logs.txt || true
-                '''
-                archiveArtifacts artifacts: 'reports/deploy/**', fingerprint: true, onlyIfSuccessful: false
+            sh '''
+                mkdir -p reports/deploy
+                docker-compose -p ci -f docker-compose.yml logs --no-color > reports/deploy/compose-logs.txt || true
+            '''
+            archiveArtifacts artifacts: 'reports/deploy/**', fingerprint: true, onlyIfSuccessful: false
             }
         }
     }
