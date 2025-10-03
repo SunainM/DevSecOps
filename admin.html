@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Inventory Admin</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background: #f9f9f9;
+      }
+      h1 {
+        text-align: center;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background: #444;
+        color: white;
+      }
+      button {
+        padding: 8px 15px;
+        margin: 5px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .btn-add {
+        background: #007bff;
+        color: white;
+      }
+      .btn-update {
+        background: #ffc107;
+        color: black;
+      }
+      .btn-delete {
+        background: #dc3545;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>⚙️ Admin Panel</h1>
+
+    <div style="text-align: center">
+      <button class="btn-add" id="btnAddRandom">Add Random Product</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Stock</th>
+          <th>Max Threshold</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="adminTable"></tbody>
+    </table>
+
+    <script>
+      async function fetchProducts() {
+        const res = await fetch("/api/products");
+        const data = await res.json();
+
+        const tb = document.getElementById("adminTable");
+        tb.innerHTML = "";
+        data.forEach((p) => {
+          const row = `
+          <tr>
+            <td>${p.id}</td>
+            <td><input value="${p.name}" onchange="updateProduct(${p.id}, 'name', this.value)" /></td>
+            <td><input type="number" value="${p.stock}" onchange="updateProduct(${p.id}, 'stock', this.value)" /></td>
+            <td><input type="number" value="${p.maxThreshold}" onchange="updateProduct(${p.id}, 'maxThreshold', this.value)" /></td>
+            <td><button class="btn-delete" onclick="deleteProduct(${p.id})">Delete</button></td>
+          </tr>`;
+          tb.insertAdjacentHTML("beforeend", row);
+        });
+      }
+
+      async function addRandomProduct() {
+        const names = ["Keyboard", "Mouse", "Monitor", "Tablet", "Camera"];
+        const name = names[Math.floor(Math.random() * names.length)];
+        const stock = Math.floor(Math.random() * 10) + 1;
+        const maxThreshold = stock + Math.floor(Math.random() * 20) + 5;
+
+        await fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, stock, maxThreshold }),
+        });
+
+        fetchProducts();
+      }
+
+      async function updateProduct(id, field, value) {
+        const body = {};
+        body[field] = field === "name" ? value : Number(value);
+
+        await fetch(`/api/products/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        fetchProducts();
+      }
+
+      async function deleteProduct(id) {
+        await fetch(`/api/products/${id}`, { method: "DELETE" });
+        fetchProducts();
+      }
+
+      document.getElementById("btnAddRandom").onclick = addRandomProduct;
+
+      // initial load
+      fetchProducts();
+    </script>
+  </body>
+</html>

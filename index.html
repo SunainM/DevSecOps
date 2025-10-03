@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Inventory Manager</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background: #f4f6f8;
+      }
+      h1 {
+        text-align: center;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background: #333;
+        color: white;
+      }
+      button {
+        padding: 8px 15px;
+        margin: 5px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .btn-start {
+        background: #28a745;
+        color: white;
+      }
+      .btn-stop {
+        background: #dc3545;
+        color: white;
+      }
+      #status {
+        margin-top: 15px;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📦 Inventory Manager</h1>
+    <div style="text-align: center">
+      <button class="btn-start" id="btnStart">Start Simulation</button>
+      <button class="btn-stop" id="btnStop">Stop Simulation</button>
+    </div>
+    <div id="status">Simulation stopped.</div>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Stock</th>
+          <th>Max Threshold</th>
+        </tr>
+      </thead>
+      <tbody id="productTable"></tbody>
+    </table>
+
+    <script>
+      async function fetchStatus() {
+        const res = await fetch("/api/sim/status");
+        const data = await res.json();
+
+        // update status line
+        const statusEl = document.getElementById("status");
+        if (data.running) {
+          const t = data.nextRunAt
+            ? new Date(data.nextRunAt).toLocaleTimeString()
+            : "soon";
+          statusEl.textContent = `Simulation running, next tick around ${t}`;
+        } else {
+          statusEl.textContent = "Simulation stopped.";
+        }
+
+        // update table
+        const tb = document.getElementById("productTable");
+        tb.innerHTML = "";
+        data.products.forEach((p) => {
+          const row = `<tr><td>${p.id}</td><td>${p.name}</td><td>${p.stock}</td><td>${p.maxThreshold}</td></tr>`;
+          tb.insertAdjacentHTML("beforeend", row);
+        });
+      }
+
+      document.getElementById("btnStart").onclick = async () => {
+        await fetch("/api/sim/start", { method: "POST" });
+        fetchStatus();
+      };
+      document.getElementById("btnStop").onclick = async () => {
+        await fetch("/api/sim/stop", { method: "POST" });
+        fetchStatus();
+      };
+
+      // poll status every 3s
+      setInterval(fetchStatus, 3000);
+      fetchStatus();
+    </script>
+  </body>
+</html>
