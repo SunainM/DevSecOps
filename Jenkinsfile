@@ -227,11 +227,37 @@ pipeline {
     }
 
     stage('Monitoring & Alerting') {
-      steps {
-        echo "📊 Monitoring application (dummy stage)..."
-        // Example: Datadog / New Relic
-        // sh 'curl -X POST https://api.datadoghq.com/...'
-      }
+        steps {
+            withCredentials([string(credentialsId: 'newrelic-api-key', variable: 'NR_API_KEY')]) {
+            sh '''
+            set -e
+
+            APP_NAME="DevSecOpsApp"          # just a label
+            NR_ACCOUNT_ID="12345678"         # replace with your real Account ID
+
+            echo "📊 Sending test metric to New Relic..."
+
+            curl -X POST "https://metric-api.newrelic.com/metric/v1" \
+                -H "Api-Key:$NR_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "[
+                {
+                    \\"metrics\\": [
+                    {
+                        \\"name\\": \\"jenkins.deploy.success\\",
+                        \\"type\\": \\"count\\",
+                        \\"value\\": 1,
+                        \\"timestamp\\": $(date +%s),
+                        \\"attributes\\": { \\"service\\": \\"$APP_NAME\\" }
+                    }
+                    ]
+                }
+                ]"
+
+            echo "✅ Metric sent to New Relic."
+            '''
+            }
+        }
     }
   }
 
