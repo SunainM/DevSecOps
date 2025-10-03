@@ -144,7 +144,7 @@ pipeline {
 
             echo "Docker endpoint: $DOCKER_HOST"
             docker version
-            docker compose version
+            docker-compose version
 
             # Bring up the app in DinD using the repo's CI compose file
             docker compose -f docker-compose.ci.yml up -d --build
